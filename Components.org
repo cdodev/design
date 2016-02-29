@@ -1,0 +1,71 @@
+* A purely functional stack for building apps
+The main difference of a functional app is that we don't mutate state directly.
+In fact current state is derived entirely from events that have been observed
+to happen, so we should be able to recover any state by replaying the events we
+have seen. The stream of events that has occurred is the golden source of data
+in the system and can be folded down into any other data source to express state.
+* Benefits
+In this section I'll cover what we want from a "purely functional" applications
+stack. At first appearances it can seem a lot of trouble so we should motivate
+all this with a look at the benefits.
+
+** Granularity
+Because we store what's happening at the level of granularity of events in the
+app that have semantic meaning, we never loose that granularity. This is in
+contrast to apps with a traditional CRUD back end where SQL commands are issued
+directly. In these apps you only see things as they are right now - you loose
+the flow of how things have got to be this way. If you're lucky in the old model
+you might have a "last updated" column or similar. You might also have bland
+data-centric event data in a WAL log or similar so that you can see what changes
+have happened in the database over time.
+** ACID
+At the point of creation events will have access to a relational database and
+will therefore be able to use all of the referential integrity tools to ensure
+that the events being generated are valid. Let's say for example that you're
+building a app that tracks to-dos as they relate to wider goals. If your
+business logic states that a to-do must have a related goal you might have a
+=todo= table and a =goal= table with a foreign key constrains between them in
+your =CreateToDo= [[Commands][command]] can simply attempt to insert into the =todo= table. If
+the inserts succeeds then the event is produced. If the foreign key (or any
+other constraint) is violated it won't be.
+** Simple model for creating state
+Because we have all the information required to re-create state is in the events
+the conceptual model is simply a left fold:
+
+#+BEGIN_SRC haskell
+foldlM :: (Foldable t, Monad m) => (state -> event -> m state) -> state -> t event -> m state
+#+END_SRC
+
+This should be pretty much all the client programmer has to provide. This also
+means that to make a representation of the data available in different systems
+as needed you only have to refold a source of events that you know to be valid.
+For example you might want to replicate the data to elastic for searching or
+some kind of data warehouse for analysis.
+** Multi use events
+As alluded to in the last section, once you have a stream of valid events and a
+simple model for how to react to them the world opens up. It becomes very simple
+to write small apps at the edges of your systems that react to changes in the
+world in real time. In our experience even the UI can be built in this way.
+** Out of the box integrations
+Several ways of looking at event data are so useful that they will be provided
+out of the box. These include streaming events into elastic so that they can be
+used in kibana alongside what you might generate from system logs. We might also
+think about a bridge into something like snowplow for analytics. 
+* What the framework will do
+The framework we will provide will take care of 
+** Commands
+*** REST
+** Event stream
+*** Apache Kafka
+*** Web socket
+*** Kibana stream
+* What the client programmer will do
+
+** Business logic
+*** Database schema
+*** Command interpreter
+*** Event processor
+*** 
+
+
+
