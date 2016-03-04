@@ -28,7 +28,21 @@ business logic states that a to-do must have a related goal you might have a
 your =CreateToDo= [[Commands][command]] can simply attempt to insert into the =todo= table. If
 the inserts succeeds then the event is produced. If the foreign key (or any
 other constraint) is violated it won't be.
-** Simple model for creating state
+*** ACID 2.0
+At some point a single database for writing events will become an unnacceptable
+bottleneck. It's worth thinking a bit upfront about how we might change things
+at that point to embrace this [[https://lostechies.com/jimmybogard/2013/06/06/acid-2-0-in-action/][Acid 2.0]] idea.
+
+ACID here refers to:
+
+  - Associative
+  - Commutative
+  - Idempotent
+  - Distributed
+
+Where we have events that meet these properties it would be good to make use of
+them if possible.
+** <<foldM>>Simple model for creating state
 Because we have all the information required to re-create state is in the events
 the conceptual model is simply a left fold:
 
@@ -55,17 +69,42 @@ think about a bridge into something like snowplow for analytics.
 The framework we will provide will take care of 
 ** Commands
 *** REST
+We ought to be able to provide a mechanical (or at least very light weight)
+mapping of [[Commands]] to POST endpoints. 
+*** Transactions
+The framework will take care of making sure that all events produced from
+interpreting a command (or commands) will be associated with a transaction. So
+in the following scenario
+
+#+BEGIN_SRC haskell
+composite = do
+  result <- command1
+  command2 result
+#+END_SRC
+
+Interpreting composite will associate the events produced by command1 and
+command2 with the same transaction id in the event stream.
 ** Event stream
 *** Apache Kafka
 *** Web socket
 *** Kibana stream
-* What the client programmer will do
+* What the client programmer will need to do
 
 ** Business logic
-*** Database schema
-*** Command interpreter
-*** Event processor
-*** 
-
+*** Database schema and data types for state
+It would be nice to have this generated from the data types (or vice versa)
+*** Commands and interpreter
+Commands are a DSL interpreted in a free monad that gives the programmer access
+to the write database and any other environment required (see [[ACID]]). The
+programmer will need to define the commands pertaining to their state and how
+the commands compile down to and interleaving of SQL statements and produced events.
+*** Event processors
+Once a valid event stream is produced from command interpretation, deriving
+state (or the "Read Model") is just a [[foldM][foldM.]] 
+*** UI View logic
+As mentioned earlier the view in the browser (or other type of UI) is just a
+special case of a fold over events. In this case the events will be pumped over
+an [[Web socket]] but the principle is the same. The client programmer will need to
+write the views.
 
 
